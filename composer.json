@@ -1,0 +1,52 @@
+{
+    "name": "henzeb/ruler-laravel",
+    "description": "extends Laravel's validator using their own Rules interface",
+    "keywords": [
+        "henzeb",
+        "ruler-laravel"
+    ],
+    "homepage": "https://github.com/henzeb/ruler-laravel",
+    "license": "AGPL-3.0-only",
+    "type": "library",
+    "authors": [
+        {
+            "name": "Henze Berkheij",
+            "email": "henzeberkheij@gmail.com",
+            "role": "Developer"
+        }
+    ],
+    "require": {
+        "php": "^8.1",
+        "illuminate/support": "^8.69|^9.0"
+    },
+    "require-dev": {
+        "orchestra/testbench": "^7.0",
+        "phpunit/phpunit": "^9.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Henzeb\\Ruler\\": "src"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Henzeb\\Ruler\\Tests\\": "tests"
+        }
+    },
+    "scripts": {
+        "test": "vendor/bin/phpunit",
+        "test-coverage": "XDEBUG_MODE=coverage vendor/bin/phpunit --coverage-html coverage",
+        "test-dox": "vendor/bin/phpunit --testdox"
+
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Henzeb\\Ruler\\Providers\\RulerServiceProvider"
+            ]
+        }
+    }
+}
