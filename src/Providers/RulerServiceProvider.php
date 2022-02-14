@@ -10,11 +10,7 @@ class RulerServiceProvider extends ServiceProvider
 {
     use Ruler;
 
-    /**
-     * Bootstrap the application services.
-     */
-    public function boot()
-    {
-        $this->rule(Enum::class);
-    }
+    protected array $rules = [
+        Enum::class
+    ];
 }
