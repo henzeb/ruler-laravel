@@ -16,11 +16,13 @@ use RuntimeException;
 trait Ruler
 {
     /**
-     * @param string|Rule $extension the extension you'd like to add can be classFQN or an instantiated Rule object
-     * @param string|null $rule name of the rule
+     * Extends the Validator with the given Illuminate\Contracts\Validation\Rule implementation.
+     *
+     * @param string|Rule $extension
+     * @param string|null $rule
      * @return void
      *
-     * @throws ReflectionException in case the string could not be instantiated
+     * @throws ReflectionException
      */
     protected function rule(string|Rule $extension, string $rule = null): void
     {
@@ -45,13 +47,14 @@ trait Ruler
         ];
 
         foreach ($extends as $class => $method) {
+
             if ($extension instanceof $class) {
+
                 $this->extendValidator(
                     $rule,
                     $method,
                     $extension::class,
-                    $extension->message(),
-                    $replacers ?? []
+                    $extension->message()
                 );
             }
         }
@@ -60,6 +63,8 @@ trait Ruler
     }
 
     /**
+     * Allows you to add an array of rules.
+     *
      * @param array $rules
      * @return void
      * @throws ReflectionException
@@ -67,7 +72,7 @@ trait Ruler
     protected function rules(array $rules)
     {
         foreach ($rules as $rule => $extension) {
-            $this->rule($extension, is_string($rule) ?$rule:null);
+            $this->rule($extension, is_string($rule) ? $rule : null);
         }
     }
 
@@ -78,10 +83,9 @@ trait Ruler
      * @param string $method
      * @param mixed $extension
      * @param string|array $message
-     * @param array $replacers
      * @return void
      */
-    private function extendValidator(string $rule, string $method, string $extension, string|array $message, array $replacers): void
+    private function extendValidator(string $rule, string $method, string $extension, string|array $message): void
     {
 
         if (is_array($message)) {
@@ -129,6 +133,7 @@ trait Ruler
      *
      * @param array $replacers
      * @param array $parameters
+     * @param string $attribute
      * @param array $data
      * @return array
      */
@@ -147,15 +152,24 @@ trait Ruler
 
         $replacers = array_combine($replacerKeys, $parameters);
 
-        array_walk($replacers, function (&$currentParameter, $key) use ($replacerClosures, $parameters, $attribute, $data) {
-            if (isset($replacerClosures[$key])) {
-                $currentParameter = $replacerClosures[$key]($currentParameter, $attribute, $parameters, $data);
+        array_walk(
+            $replacers,
+            function (&$currentParameter, $key) use ($replacerClosures, $parameters, $attribute, $data) {
+                if (isset($replacerClosures[$key])) {
+                    $currentParameter = $replacerClosures[$key]($currentParameter, $attribute, $parameters, $data);
+                }
             }
-        });
+        );
 
         return $replacers;
     }
 
+    /**
+     * Separates the closures from the keys
+     *
+     * @param array $replacers
+     * @return array
+     */
     private function parseReplacers(array $replacers): array
     {
         $result = [0 => [], 1 => []];

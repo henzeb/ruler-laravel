@@ -9,6 +9,7 @@ use Illuminate\Validation\Rules\Enum;
 class RulerServiceProvider extends ServiceProvider
 {
     use Ruler;
+
     /**
      * Bootstrap the application services.
      */
