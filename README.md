@@ -23,7 +23,7 @@ In order to use it like this, you need to extend your Validator
 and use the `Illuminate\Validation\Rules\Enum` rule, or create your 
 own version. This library simplifies that process.
 
-I've gone ahead and registered `enum` for you, but you can just as easily add your own `Rule`.
+I've gone ahead and registered `enum` for you, but you can just as easily add your own rules.
 
 ## Installation
 
@@ -37,31 +37,8 @@ note: I only support PHP ^8.1 and Laravel ^8.69 and ^9.0 because of the enums.
 
 ## Usage
 
-Simply add the `Henzeb\Ruler\Concerns\Ruler` trait to your service provider and use 
-the `rule` method inside the `boot` method to add rules.
-
-```php
-use Henzeb\Ruler\Concerns\Ruler;
-use Illuminate\Support\ServiceProvider;
-use App\Rules\YourRule;
-
-class YourProvider extends ServiceProvider
-{
-    use Ruler;
-    
-    public function boot()
-    {
-        $this->rule(YourRule::class, 'your_rule');
-        $this->rule(YourOtherRule::class);
-    }
-}
-```
-
-You can either specify a name, or just let Ruler use the classname to create a name for you.
-
-For example: `YourOtherRule` will get the name `your_other_rule`. 
-
-You can also use the `rules` method if you want to define an array in top of your provider.
+Simply add the `Henzeb\Ruler\Concerns\Ruler` trait to your service provider and 
+add your rules to the `$rules` property.
 
 ```php
 use Henzeb\Ruler\Concerns\Ruler;
@@ -77,17 +54,66 @@ class YourProvider extends ServiceProvider
         'your_rule' => YourRule::class,
         YourOtherRule::class
     ]; 
-      
-    public function boot()
-    {
-        $this->rules($this->rules);
+}
+```
+
+You can either specify a name, or just let Ruler create a name for you.
+
+For example: `YourOtherRule` will get the name `your_other_rule`. 
+
+If your provider needs to implement the boot method, just call the `bootRuler` 
+method inside that `boot` method
+
+```php
+use Henzeb\Ruler\Concerns\Ruler;
+use Illuminate\Support\ServiceProvider;
+use App\Rules\YourRule;
+use App\Rules\YourOtherRule;
+
+class YourProvider extends ServiceProvider
+{
+    use Ruler;
+    
+    private array $rules = [
+        'your_rule' => YourRule::class,
+        YourOtherRule::class
+    ]; 
+    
+    public function boot() {
+        $this->bootRuler();
+        // your code
+    }
+}
+```
+
+It is also possible to do it yourself in case you need to do it conditionally.
+
+```php
+use Henzeb\Ruler\Concerns\Ruler;
+use Illuminate\Support\ServiceProvider;
+use App\Rules\YourRule;
+use App\Rules\YourOtherRule;
+
+class YourProvider extends ServiceProvider
+{
+    use Ruler;
+    
+    public function boot() {
+        if(/** some condition */) {
+            $this->rule(YourRule::class, 'your_rule');
+        }
+        
+        if(/** some condition */) {
+            $this->rule(YourOtherRule::class);
+        }
+        // your code
     }
 }
 ```
 
 ### The Rule class
 
-The `rule` is implemented just like any other `Rule` you'd normally define. 
+The rules are implemented just like any other `Rule` you'd normally define. 
 So you'll be familiar with the implementation.
 
 ```php
@@ -149,7 +175,8 @@ class DependentRule implements DataAwareRule {
         $this->data = $data;
         return $this;
     }
-    // the code 
+    
+    // your code 
 }
 ```
 

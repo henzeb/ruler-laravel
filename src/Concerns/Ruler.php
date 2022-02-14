@@ -76,6 +76,24 @@ trait Ruler
         }
     }
 
+    public function boot(): void
+    {
+        $this->bootRuler();
+    }
+
+    /**
+     * Use this method when you are implementing your own boot method.
+     *
+     * @return void
+     * @throws ReflectionException
+     */
+    protected function bootRuler(): void
+    {
+        if(method_exists($this, 'rules')) {
+            $this->rules($this->rules);
+        }
+    }
+
     /**
      * extends the validator
      *

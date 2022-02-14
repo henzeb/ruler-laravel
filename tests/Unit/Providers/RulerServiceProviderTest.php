@@ -3,6 +3,7 @@
 namespace Henzeb\Ruler\Tests\Unit\Providers;
 
 use Henzeb\Ruler\Providers\RulerServiceProvider;
+use Henzeb\Ruler\Tests\Fixtures\CustomBootServiceProvider;
 use Henzeb\Ruler\Tests\Fixtures\TestEnum;
 use Illuminate\Support\Facades\Validator;
 use Orchestra\Testbench\TestCase;
@@ -13,13 +14,23 @@ use Orchestra\Testbench\TestCase;
  */
 class RulerServiceProviderTest extends Testcase
 {
-    protected function getPackageProviders($app)
+    protected function providesServiceProviders(): array
     {
-        return [RulerServiceProvider::class];
+        return [
+            'trait-boot' => [RulerServiceProvider::class],
+            'with-custom-boot' => [CustomBootServiceProvider::class],
+        ];
     }
 
-    public function testEnumRuleShouldPass()
+    /**
+     * @return void
+     *
+     * @dataProvider providesServiceProviders
+     */
+    public function testEnumRuleShouldPass(string $serviceProvider)
     {
+        $this->app->make($serviceProvider, ['app'=>$this->app])->boot();
+
         $this->assertTrue(
             Validator::make(
                 [
@@ -33,8 +44,15 @@ class RulerServiceProviderTest extends Testcase
         );
     }
 
-    public function testEnumRuleShouldFail()
+    /**
+     * @return void
+     *
+     * @dataProvider providesServiceProviders
+     */
+    public function testEnumRuleShouldFail(string $serviceProvider)
     {
+        $this->app->make($serviceProvider, ['app'=>$this->app])->boot();
+
         $this->expectExceptionMessage('The selected my field is invalid.');
 
         Validator::make(
