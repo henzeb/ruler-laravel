@@ -3,8 +3,8 @@
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/henzeb/ruler-laravel.svg?style=flat-square)](https://packagist.org/packages/henzeb/ruler-laravel)
 [![Total Downloads](https://img.shields.io/packagist/dt/henzeb/ruler-laravel.svg?style=flat-square)](https://packagist.org/packages/henzeb/ruler-laravel)
 
-This library allows you to use your Rule as a string, just like you use existing validators like 'require', 'unique'
-or 'required_if'.
+This library allows you to use your Rule as a string, just like you use existing validators like `required`, `required_if`
+or `unique`.
 
 For example: Laravel has bundled a rule for enums. As the parameter you pass is a string, you should be able to use it
 like this:
@@ -19,8 +19,9 @@ right?
 
 wrong!
 
-In order to use it like this, you need to extend your Validator and use the `Illuminate\Validation\Rules\Enum` rule, or
-create your own version. This library simplifies that process.
+In order to use it like this, you need to extend your Validator 
+and use the `Illuminate\Validation\Rules\Enum` rule, or create your 
+own version. This library simplifies that process.
 
 I've gone ahead and registered `enum` for you, but you can just as easily add your own `Rule`.
 
@@ -33,10 +34,11 @@ composer require henzeb/ruler-laravel
 ```
 
 note: I only support PHP ^8.1 and Laravel ^8.69 and ^9.0 because of the enums.
+
 ## Usage
 
-Simply add the `Henzeb\Ruler\Concerns\Ruler` trait to your service provider and use the `rule` method inside the `boot`
-method to add rules.
+Simply add the `Henzeb\Ruler\Concerns\Ruler` trait to your service provider and use 
+the `rule` method inside the `boot` method to add rules.
 
 ```php
 use Henzeb\Ruler\Concerns\Ruler;
@@ -84,7 +86,8 @@ class YourProvider extends ServiceProvider
 ```
 
 ### The Rule class
-The rule is implemented just like any other `Rule` you'd normally define. 
+
+The `rule` is implemented just like any other `Rule` you'd normally define. 
 So you'll be familiar with the implementation.
 
 ```php
@@ -107,8 +110,10 @@ class YourRule implements Rule {
 #### Parameters
 
 You can use parameters. Just add a constructor with the parameters in the order 
-you'd like to use them. Optional parameters are supported. As for now, you'll 
-receive them as strings, no casting to other scalars is done at this time. 
+you'd like to use them. Optional parameters are supported. 
+
+Note: As for now, you'll receive them as strings, no casting to other scalars is 
+done at this time. 
 
 ```php
 public function __construct(private string $param1, private string $param2 = null){}
@@ -130,7 +135,8 @@ class YourImplicitRule implements ImplicitRule {
 
 #### Dependent rules
 
-To add a dependent rule, just implement the `Illuminate\Contracts\Validation\DataAwareRule` 
+To add a dependent rule, just implement 
+the `Illuminate\Contracts\Validation\DataAwareRule` interface. 
 interface Ruler will do the rest for you.
 
 ```php
@@ -143,8 +149,7 @@ class DependentRule implements DataAwareRule {
         $this->data = $data;
         return $this;
     }
-    // the code
-    
+    // the code 
 }
 ```
 
@@ -157,7 +162,7 @@ be `dependent`
 ### The error message
 
 The error message should be placed in the `message` method 
-as defined in `\Illuminate\Contracts\Validation\Rule`, 
+as defined in `Illuminate\Contracts\Validation\Rule`, 
 just as you normally would.
 
 note: The message is static, you can not use parameters or validation outcome. 
@@ -165,8 +170,8 @@ Use replacers instead.
 
 #### replacers
 
-Out of the box, you can use `:<number>` to point to a parameter, but if you want them named, you can use
-the `Henzeb\Ruler\Contracts\ReplacerAwareRule`.
+Out of the box, you can use `:<number>` to point to a parameter, but if you want them named, 
+you can use the `Henzeb\Ruler\Contracts\ReplacerAwareRule` interface.
 
 ```php
 use Henzeb\Ruler\Contracts\ReplacerAwareRule;
