@@ -19,8 +19,8 @@ right?
 
 wrong!
 
-In order to use it like this, you need to extend your Validator 
-and use the `Illuminate\Validation\Rules\Enum` rule, or create your 
+In order to use it like this, you need to extend your Validator
+and use the `Illuminate\Validation\Rules\Enum` rule, or create your
 own version. This library simplifies that process.
 
 I've gone ahead and registered `enum` for you, but you can just as easily add your own rules.
@@ -37,7 +37,7 @@ note: I only support PHP ^8.1 and Laravel ^8.69 and ^9.0 because of the enums.
 
 ## Usage
 
-Simply add the `Henzeb\Ruler\Concerns\Ruler` trait to your service provider and 
+Simply add the `Henzeb\Ruler\Concerns\Ruler` trait to your service provider and
 add your rules to the `$rules` property.
 
 ```php
@@ -59,9 +59,9 @@ class YourProvider extends ServiceProvider
 
 You can either specify a name, or just let Ruler create a name for you.
 
-For example: `YourOtherRule` will get the name `your_other_rule`. 
+For example: `YourOtherRule` will get the name `your_other_rule`.
 
-If your provider needs to implement the boot method, just call the `bootRuler` 
+If your provider needs to implement the boot method, just call the `bootRuler`
 method inside that `boot` method
 
 ```php
@@ -113,7 +113,7 @@ class YourProvider extends ServiceProvider
 
 ### The Rule class
 
-The rules are implemented just like any other `Rule` you'd normally define. 
+The rules are implemented just like any other `Rule` you'd normally define.
 So you'll be familiar with the implementation.
 
 ```php
@@ -135,11 +135,11 @@ class YourRule implements Rule {
 
 #### Parameters
 
-You can use parameters. Just add a constructor with the parameters in the order 
-you'd like to use them. Optional parameters are supported. 
+You can use parameters. Just add a constructor with the parameters in the order
+you'd like to use them. Optional parameters are supported.
 
-Note: As for now, you'll receive them as strings, no casting to other scalars is 
-done at this time. 
+Note: As for now, you'll receive them as strings, no casting to other scalars is
+done at this time.
 
 ```php
 public function __construct(private string $param1, private string $param2 = null){}
@@ -147,7 +147,7 @@ public function __construct(private string $param1, private string $param2 = nul
 
 #### Implicit rules
 
-To add an implicit rule, all you have to do is implement 
+To add an implicit rule, all you have to do is implement
 the `Illuminate\Contracts\Validation\ImplicitRule` interface.
 Ruler will do the rest for you.
 
@@ -161,8 +161,8 @@ class YourImplicitRule implements ImplicitRule {
 
 #### Dependent rules
 
-To add a dependent rule, just implement 
-the `Illuminate\Contracts\Validation\DataAwareRule` interface. 
+To add a dependent rule, just implement
+the `Illuminate\Contracts\Validation\DataAwareRule` interface.
 interface Ruler will do the rest for you.
 
 ```php
@@ -182,22 +182,49 @@ class DependentRule implements DataAwareRule {
 
 #### mixing up interfaces
 
-You can mix up the interfaces just like you would in vanilla Laravel. 
+You can mix up the interfaces just like you would in vanilla Laravel.
 For instance: A rule that is `implicit` can also
 be `dependent`
 
 ### The error message
 
-The error message should be placed in the `message` method 
-as defined in `Illuminate\Contracts\Validation\Rule`, 
+The error message should be placed in the `message` method
+as defined in `Illuminate\Contracts\Validation\Rule`,
 just as you normally would.
 
-note: The message is static, you can not use parameters or validation outcome. 
-Use replacers instead.
+The message method is called dynamically, which means you can store the message in your 
+`Rule` instance and return it in the `message` method.
+
+```php
+use Henzeb\Ruler\Contracts\ReplacerAwareRule;
+use Illuminate\Contracts\Validation\Rule;
+
+class YourRule implements Rule
+{
+    return string $message = 'Something went wrong';
+    
+    public __construct($param_1, $paramTwo) {}
+    
+    public function passes($attribute, $value)
+    {
+        $this->message = 'Your error message';
+        return false;
+    }
+    
+    public function message()
+    {
+        return return $this->message;
+    }
+}
+```
+
+It also supports returning arrays. When an array is returned, the `MessageBag` contains
+the messages as if they were coming from different validation rules. This way your `Rule`
+can do grouped validations (for instance using another Validator instance).
 
 #### replacers
 
-Out of the box, you can use `:<number>` to point to a parameter, but if you want them named, 
+Out of the box, you can use `:<number>` to point to a parameter, but if you want them named,
 you can use the `Henzeb\Ruler\Contracts\ReplacerAwareRule` interface.
 
 ```php
@@ -226,8 +253,8 @@ The parameters are in order as specified. `param_1` will point to the value of `
 
 #### Closures
 
-You can add a `Closure` to a replacer if you have specific needs. A `Closure` always 
-receives the value of the current parameter, the attributes name, the other parameters (named) 
+You can add a `Closure` to a replacer if you have specific needs. A `Closure` always
+receives the value of the current parameter, the attributes name, the other parameters (named)
 and all the fields that are under validation.
 
 ```php
@@ -249,6 +276,10 @@ class YourRule implements ReplacerAwareRule
     }
 }
 ```
+
+### Overriding the Validator resolver
+Because Ruler has a custom Validator instance set to resolve by Laravel, you need to extend
+the `Henzeb\Ruler\Validator\RulerValidator` class in case you want to change the resolver.
 
 ### Testing
 

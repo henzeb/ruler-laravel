@@ -36,6 +36,7 @@
     "scripts": {
         "test": "vendor/bin/phpunit",
         "test-coverage": "XDEBUG_MODE=coverage vendor/bin/phpunit --coverage-html coverage",
+        "test-coverage-txt": "XDEBUG_MODE=coverage vendor/bin/phpunit --coverage-text",
         "test-dox": "vendor/bin/phpunit --testdox"
 
     },

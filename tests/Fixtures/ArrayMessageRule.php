@@ -13,6 +13,9 @@ class ArrayMessageRule implements Rule
 
     public function message()
     {
-        return ['This is the message', 'hide this'];
+        return [
+            'This is the message',
+            'Another message'
+        ];
     }
 }

@@ -3,15 +3,16 @@
 namespace Henzeb\Ruler\Concerns;
 
 use Closure;
-use Henzeb\Ruler\Contracts\ReplacerAwareRule;
-use Illuminate\Contracts\Validation\DataAwareRule;
-use Illuminate\Contracts\Validation\ImplicitRule;
+use ReflectionClass;
+use RuntimeException;
+use ReflectionException;
+use Illuminate\Support\Str;
 use Illuminate\Contracts\Validation\Rule;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Str;
-use ReflectionClass;
-use ReflectionException;
-use RuntimeException;
+use Henzeb\Ruler\Validator\RulerValidator;
+use Henzeb\Ruler\Contracts\ReplacerAwareRule;
+use Illuminate\Contracts\Validation\ImplicitRule;
+use Illuminate\Contracts\Validation\DataAwareRule;
 
 trait Ruler
 {
@@ -53,8 +54,7 @@ trait Ruler
                 $this->extendValidator(
                     $rule,
                     $method,
-                    $extension::class,
-                    $extension->message()
+                    $extension::class
                 );
             }
         }
@@ -89,7 +89,7 @@ trait Ruler
      */
     protected function bootRuler(): void
     {
-        if(method_exists($this, 'rules')) {
+        if (method_exists($this, 'rules')) {
             $this->rules($this->rules);
         }
     }
@@ -103,25 +103,21 @@ trait Ruler
      * @param string|array $message
      * @return void
      */
-    private function extendValidator(string $rule, string $method, string $extension, string|array $message): void
+    private function extendValidator(string $rule, string $method, string $extension): void
     {
-
-        if (is_array($message)) {
-            $message = reset($message);
-        }
-
         Validator::$method(
             $rule,
-            function ($attribute, $value, $parameters, $validator) use ($extension) {
-                $rule = new $extension(...$parameters);
+            (static function ($attribute, $value, $parameters, $validator) use ($extension) {
+
+                RulerValidator::$rulers[$extension] = $rule = new $extension(...$parameters);
 
                 if ($rule instanceof DataAwareRule) {
                     $rule->setData($validator->getData());
                 }
 
                 return $rule->passes($attribute, $value);
-            },
-            $message
+            })->bindTo(null,RulerValidator::class),
+            (static fn() => RulerValidator::$rulers[$extension]->message())->bindTo(null, RulerValidator::class)
         );
     }
 
@@ -166,7 +162,7 @@ trait Ruler
          */
         $replacers = array_slice($replacers, 0, count($parameters));
 
-        list($replacerKeys, $replacerClosures) = $this->parseReplacers($replacers);
+        [$replacerKeys, $replacerClosures] = $this->parseReplacers($replacers);
 
         $replacers = array_combine($replacerKeys, $parameters);
 

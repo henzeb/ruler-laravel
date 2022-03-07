@@ -3,25 +3,41 @@
 namespace Henzeb\Ruler\Tests\Unit\Concerns;
 
 
+use RuntimeException;
+use ReflectionException;
 use Henzeb\Ruler\Concerns\Ruler;
-use Henzeb\Ruler\Tests\Fixtures\ArrayMessageRule;
+use Orchestra\Testbench\TestCase;
+use Illuminate\Contracts\Validation\Rule;
+use Illuminate\Support\Facades\Validator;
+use Henzeb\Ruler\Validator\RulerValidator;
 use Henzeb\Ruler\Tests\Fixtures\BasicRule;
 use Henzeb\Ruler\Tests\Fixtures\DependentRule;
+use Henzeb\Ruler\Tests\Fixtures\ArrayMessageRule;
 use Henzeb\Ruler\Tests\Fixtures\InvalidRuleClass;
 use Henzeb\Ruler\Tests\Fixtures\ParameterizedRule;
 use Henzeb\Ruler\Tests\Fixtures\SimpleImlicitRule;
 use Henzeb\Ruler\Tests\Fixtures\WithReplacersRule;
+use Henzeb\Ruler\Tests\Fixtures\DynamicMessageRule;
+use Henzeb\Ruler\Tests\Fixtures\DynamicMessagesRule;
 use Henzeb\Ruler\Tests\Fixtures\WithReplacerWithCallbackRule;
-use Illuminate\Contracts\Validation\Rule;
-use Illuminate\Support\Facades\Validator;
-use Orchestra\Testbench\TestCase;
-use ReflectionException;
-use RuntimeException;
 
 
 class RulerTest extends TestCase
 {
     use Ruler;
+
+    private array $rules = [
+        BasicRule::class
+    ];
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        Validator::resolver(function ($translator, $data, $rules, $messages, $customAttributes) {
+            return new RulerValidator($translator, $data, $rules, $messages, $customAttributes);
+        });
+    }
 
     public function testShouldExtendValidatorUsingClassnameAsRulename()
     {
@@ -44,9 +60,9 @@ class RulerTest extends TestCase
     public function providesTestcasesForShouldGetMessage(): array
     {
         return [
-            'string-given' => ['byString', BasicRule::class],
-            'instance-given' => ['byInstance', new BasicRule()],
-            'instance-that-returns-array-as-message' => ['messageReturnsArray', new ArrayMessageRule()],
+            'string-given' => ['byString', BasicRule::class, ['This is the message']],
+            'instance-given' => ['byInstance', new BasicRule(), ['This is the message']],
+            'instance-that-returns-array-as-message' => ['messageReturnsArray', new ArrayMessageRule(), ['This is the message', 'Another message']],
         ];
     }
 
@@ -58,15 +74,13 @@ class RulerTest extends TestCase
      *
      * @dataProvider providesTestcasesForShouldGetMessage
      */
-    public function testShouldFailWithMessage(string $rule, string|Rule $extension): void
+    public function testShouldFailWithMessage(string $rule, string|Rule $extension, array $expected): void
     {
         $this->rule($extension, $rule);
 
         $this->assertEquals(
             [
-                'test' => [
-                    'This is the message'
-                ]
+                'test' => $expected
             ],
             Validator::make(
                 [
@@ -227,5 +241,94 @@ class RulerTest extends TestCase
         $this->rules(['basic' => BasicRule::class, 'another' => DependentRule::class]);
     }
 
+    public function testShouldBootRulerWhithBootMethod()
+    {
+        Validator::partialMock()->expects('extend')
+            ->withSomeOfArgs('basic_rule');
 
+        $this->boot();
+    }
+
+    public function testRulesShouldHaveDynamicMessages()
+    {
+        $this->rule(DynamicMessagesRule::class, 'dynamic');
+
+        $this->assertEquals(
+            ['test_field' => [
+                'This is a message',
+                'This is another message'
+            ]],
+            Validator::make(
+                [
+                    'test_field' => 'testMe',
+                ],
+                [
+                    'test_field' => 'dynamic'
+                ]
+            )->messages()->toArray()
+        );
+    }
+
+    public function testRulesShouldHaveDynamicMessage()
+    {
+        $this->rule(DynamicMessageRule::class, 'dynamic');
+
+        $this->assertEquals(
+            ['test_field' => [
+                'This is a message for test_field',
+            ]],
+            Validator::make(
+                [
+                    'test_field' => 'testMe',
+                ],
+                [
+                    'test_field' => 'dynamic'
+                ]
+            )->messages()->toArray()
+        );
+    }
+
+    public function testShouldAllowMultipleInstancesOfTheSameRule()
+    {
+        $this->rule(DynamicMessageRule::class, 'dynamic');
+
+        $this->assertEquals(
+            [
+                'test_field' => [
+                    'This is a message for test_field',
+                ],
+                'test_field2' => [
+                    'This is a message for test_field2',
+                ]
+            ],
+            Validator::make(
+                [
+                    'test_field' => 'testMe',
+                    'test_field2' => 'testMe',
+                ],
+                [
+                    'test_field' => 'dynamic',
+                    'test_field2' => 'dynamic',
+                ]
+            )->messages()->toArray()
+        );
+    }
+
+    public function testRulerShouldStillBeAbleToPassLaravelValidationMessages()
+    {
+        $this->assertEquals(
+            [
+                'a_field' => [
+                    'The a field must be an array.',
+                    'The a field field is prohibited unless another field is in test.'
+                ]
+            ],
+            Validator::make(
+                [
+                    'a_field' => 'string'
+                ],
+                ['a_field' => 'array|prohibited_unless:another_field,test']
+            )->messages()->toArray()
+        );
+    }
 }
