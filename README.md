@@ -1,7 +1,9 @@
 # Ruler for Laravel
+[![Build Status](https://github.com/henzeb/ruler-laravel/workflows/tests/badge.svg)](https://github.com/henzeb/ruler-laravel/actions)
+[![Latest Version on Packagist](https://img.shields.io/packagist/v/henzeb/ruler-laravel.svg)](https://packagist.org/packages/henzeb/ruler-laravel)
+[![Total Downloads](https://img.shields.io/packagist/dt/henzeb/ruler-laravel.svg)](https://packagist.org/packages/henzeb/ruler-laravel)
+[![Test Coverage](https://api.codeclimate.com/v1/badges/e99e94ee9fa5a9a40901/test_coverage)](https://codeclimate.com/github/henzeb/ruler-laravel/test_coverage)
 
-[![Latest Version on Packagist](https://img.shields.io/packagist/v/henzeb/ruler-laravel.svg?style=flat-square)](https://packagist.org/packages/henzeb/ruler-laravel)
-[![Total Downloads](https://img.shields.io/packagist/dt/henzeb/ruler-laravel.svg?style=flat-square)](https://packagist.org/packages/henzeb/ruler-laravel)
 
 This library allows you to use your Rule as a string, just like you use existing validators like `required`, `required_if`
 or `unique`.
