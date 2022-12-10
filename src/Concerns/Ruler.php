@@ -76,6 +76,9 @@ trait Ruler
         }
     }
 
+    /**
+     * @throws ReflectionException
+     */
     public function boot(): void
     {
         $this->bootRuler();
@@ -100,7 +103,6 @@ trait Ruler
      * @param string $rule
      * @param string $method
      * @param mixed $extension
-     * @param string|array $message
      * @return void
      */
     private function extendValidator(string $rule, string $method, string $extension): void
