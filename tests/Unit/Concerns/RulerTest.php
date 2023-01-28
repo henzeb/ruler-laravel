@@ -14,9 +14,11 @@ use Henzeb\Ruler\Tests\Fixtures\BasicRule;
 use Henzeb\Ruler\Tests\Fixtures\DependentRule;
 use Henzeb\Ruler\Tests\Fixtures\ArrayMessageRule;
 use Henzeb\Ruler\Tests\Fixtures\InvalidRuleClass;
+use Henzeb\Ruler\Tests\Fixtures\InvokableTestRule;
 use Henzeb\Ruler\Tests\Fixtures\ParameterizedRule;
 use Henzeb\Ruler\Tests\Fixtures\SimpleImlicitRule;
 use Henzeb\Ruler\Tests\Fixtures\WithReplacersRule;
+use Illuminate\Contracts\Validation\InvokableRule;
 use Henzeb\Ruler\Tests\Fixtures\DynamicMessageRule;
 use Henzeb\Ruler\Tests\Fixtures\DynamicMessagesRule;
 use Henzeb\Ruler\Tests\Fixtures\WithReplacerWithCallbackRule;
@@ -62,7 +64,11 @@ class RulerTest extends TestCase
         return [
             'string-given' => ['byString', BasicRule::class, ['This is the message']],
             'instance-given' => ['byInstance', new BasicRule(), ['This is the message']],
-            'instance-that-returns-array-as-message' => ['messageReturnsArray', new ArrayMessageRule(), ['This is the message', 'Another message']],
+            'instance-that-returns-array-as-message' => [
+                'messageReturnsArray',
+                new ArrayMessageRule(),
+                ['This is the message', 'Another message']
+            ],
         ];
     }
 
@@ -89,7 +95,8 @@ class RulerTest extends TestCase
                 [
                     'test' => $rule
                 ]
-            )->getMessageBag()->toArray());
+            )->getMessageBag()->toArray()
+        );
     }
 
     public function testShouldPassWhenGivenCorrectValue()
@@ -104,15 +111,30 @@ class RulerTest extends TestCase
                 [
                     'test' => 'testUsingValue'
                 ]
-            )->passes());
+            )->passes()
+        );
     }
 
     public function testShouldThrowExceptionWhenIsNotARule(): void
     {
         $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('Validation rule \'invalidRule\' should be an instance of ' . Rule::class);
+        $this->expectExceptionMessage(
+            'Validation rule \'invalidRule\' should be an instance of \'' . Rule::class
+            . '\' or \'' . InvokableRule::class . '\''
+        );
 
         $this->rule(InvalidRuleClass::class, 'invalidRule');
+    }
+
+    public function testShouldThrowExceptionWhenIsNotARuleWithoutRuleName(): void
+    {
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage(
+            'Validation rule \'invalid_rule_class\' should be an instance of \'' . Rule::class
+            . '\' or \'' . InvokableRule::class . '\''
+        );
+
+        $this->rule(InvalidRuleClass::class);
     }
 
     public function providesTestCasesForShouldGetMessagesWithParametersReplaced(): array
@@ -169,8 +191,11 @@ class RulerTest extends TestCase
      * @dataProvider providesTestCasesForShouldGetMessagesWithParametersReplaced
      */
 
-    public function testShouldGetMessageWithParametersReplaced(string $class, string $parameters, string $expectedMessage)
-    {
+    public function testShouldGetMessageWithParametersReplaced(
+        string $class,
+        string $parameters,
+        string $expectedMessage
+    ) {
         $this->rule($class, 'test');
         $this->assertEquals(
             [
@@ -185,7 +210,8 @@ class RulerTest extends TestCase
                 [
                     'myAttribute' => 'test:' . $parameters
                 ]
-            )->getMessageBag()->toArray());
+            )->getMessageBag()->toArray()
+        );
     }
 
     public function testShouldRegisterAsImplicit()
@@ -228,7 +254,6 @@ class RulerTest extends TestCase
 
     public function testRulesShouldExtendValidator()
     {
-
         Validator::spy()->expects('extend')->once();
 
         $this->rules(['basic' => BasicRule::class]);
@@ -254,10 +279,12 @@ class RulerTest extends TestCase
         $this->rule(DynamicMessagesRule::class, 'dynamic');
 
         $this->assertEquals(
-            ['test_field' => [
-                'This is a message',
-                'This is another message'
-            ]],
+            [
+                'test_field' => [
+                    'This is a message',
+                    'This is another message'
+                ]
+            ],
             Validator::make(
                 [
                     'test_field' => 'testMe',
@@ -274,15 +301,54 @@ class RulerTest extends TestCase
         $this->rule(DynamicMessageRule::class, 'dynamic');
 
         $this->assertEquals(
-            ['test_field' => [
-                'This is a message for test_field',
-            ]],
+            [
+                'test_field' => [
+                    'This is a message for test_field',
+                ]
+            ],
             Validator::make(
                 [
                     'test_field' => 'testMe',
                 ],
                 [
                     'test_field' => 'dynamic'
+                ]
+            )->messages()->toArray()
+        );
+    }
+
+    public function testShouldAllowInvokableRule()
+    {
+        if(!\class_exists('Illuminate\Contracts\Validation\InvokableRule')) {
+            $this->expectNotToPerformAssertions();
+            return;
+        }
+        $this->rule(InvokableTestRule::class, 'invokable');
+
+        $this->assertEquals(
+            [],
+            Validator::make(
+                [
+                    'test_field' => 'testMe',
+                ],
+                [
+                    'test_field' => 'invokable'
+                ]
+            )->messages()->toArray()
+        );
+
+        $this->assertEquals(
+            [
+                'test_field' => [
+                    'shouldFail'
+                ]
+            ],
+            Validator::make(
+                [
+                    'test_field' => 'testMe',
+                ],
+                [
+                    'test_field' => 'invokable:1'
                 ]
             )->messages()->toArray()
         );
