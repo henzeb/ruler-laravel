@@ -13,69 +13,12 @@ use Henzeb\Ruler\Validator\RulerValidator;
 use Henzeb\Ruler\Contracts\ReplacerAwareRule;
 use Illuminate\Contracts\Validation\ImplicitRule;
 use Illuminate\Contracts\Validation\DataAwareRule;
+use Illuminate\Contracts\Validation\InvokableRule;
+use Illuminate\Validation\InvokableValidationRule;
+use Illuminate\Contracts\Validation\ValidatorAwareRule;
 
 trait Ruler
 {
-    /**
-     * Extends the Validator with the given Illuminate\Contracts\Validation\Rule implementation.
-     *
-     * @param string|Rule $extension
-     * @param string|null $rule
-     * @return void
-     *
-     * @throws ReflectionException
-     */
-    protected function rule(string|Rule $extension, string $rule = null): void
-    {
-        if (is_string($extension) && class_exists($extension)) {
-            $extension = (new ReflectionClass($extension))->newInstanceWithoutConstructor();
-        }
-
-        if (!$extension instanceof Rule) {
-            throw new RuntimeException('Validation rule \'' . $rule . '\' should be an instance of ' . Rule::class);
-        }
-
-        if ($extension instanceof ReplacerAwareRule) {
-            $replacers = $extension->replacers();
-        }
-
-        $rule = $rule ?? Str::snake(class_basename($extension));
-
-        $extends = [
-            DataAwareRule::class => 'extendDependent',
-            ImplicitRule::class => 'extendImplicit',
-            Rule::class => 'extend'
-        ];
-
-        foreach ($extends as $class => $method) {
-
-            if ($extension instanceof $class) {
-
-                $this->extendValidator(
-                    $rule,
-                    $method,
-                    $extension::class
-                );
-            }
-        }
-
-        $this->addReplacer($rule, $replacers ?? []);
-    }
-
-    /**
-     * Allows you to add an array of rules.
-     *
-     * @param array $rules
-     * @return void
-     * @throws ReflectionException
-     */
-    protected function rules(array $rules)
-    {
-        foreach ($rules as $rule => $extension) {
-            $this->rule($extension, is_string($rule) ? $rule : null);
-        }
-    }
-
     /**
      * @throws ReflectionException
      */
@@ -97,6 +40,62 @@ trait Ruler
         }
     }
 
+    private function rulerClassmap(): array
+    {
+        return [
+            InvokableRule::class => 'extend',
+            DataAwareRule::class => 'extendDependent',
+            ImplicitRule::class => 'extendImplicit',
+            Rule::class => 'extend',
+        ];
+    }
+
+    /**
+     * Allows you to add an array of rules.
+     *
+     * @param array $rules
+     * @return void
+     * @throws ReflectionException
+     */
+    protected function rules(array $rules)
+    {
+        foreach ($rules as $rule => $extension) {
+            $this->rule($extension, is_string($rule) ? $rule : null);
+        }
+    }
+
+    /**
+     * Extends the Validator with the given Illuminate\Contracts\Validation\Rule implementation.
+     *
+     * @param string|Rule|InvokableRule $extension
+     * @param string|null $rule
+     * @return void
+     *
+     * @throws ReflectionException
+     */
+    protected function rule(string|Rule|InvokableRule $extension, string $rule = null): void
+    {
+        if (is_string($extension) && class_exists($extension)) {
+            $extension = (new ReflectionClass($extension))->newInstanceWithoutConstructor();
+        }
+
+        $rule = $rule ?? Str::snake(class_basename($extension));
+
+        $this->validateRuleOrThrowException($extension, $rule);
+
+        foreach ($this->rulerClassmap() as $class => $method) {
+            if ($extension instanceof $class) {
+                $this->extendValidator(
+                    $rule,
+                    $method,
+                    $extension::class
+                );
+            }
+        }
+
+        $this->addReplacer($rule, $extension);
+    }
+
     /**
      * extends the validator
      *
@@ -110,15 +109,24 @@ trait Ruler
         Validator::$method(
             $rule,
             (static function ($attribute, $value, $parameters, $validator) use ($extension) {
+                $rule = new $extension(...$parameters);
 
-                RulerValidator::$rulers[$extension] = $rule = new $extension(...$parameters);
+                if ($rule instanceof InvokableRule) {
+                    $rule = InvokableValidationRule::make($rule);
+                }
+
+                RulerValidator::$rulers[$extension] = $rule;
 
                 if ($rule instanceof DataAwareRule) {
                     $rule->setData($validator->getData());
                 }
 
+                if ($rule instanceof ValidatorAwareRule) {
+                    $rule->setValidator($validator);
+                }
+
                 return $rule->passes($attribute, $value);
-            })->bindTo(null,RulerValidator::class),
+            })->bindTo(null, RulerValidator::class),
             (static fn() => RulerValidator::$rulers[$extension]->message())->bindTo(null, RulerValidator::class)
         );
     }
@@ -127,16 +135,24 @@ trait Ruler
      * adds a replacer
      *
      * @param string $rule
-     * @param array $replacers
+     * @param object $extension
      * @return void
      */
-    private function addReplacer(string $rule, array $replacers): void
+    private function addReplacer(string $rule, object $extension): void
     {
-        Validator::replacer($rule,
+        $replacers = $extension instanceof ReplacerAwareRule?$extension->replacers():[];
+
+        Validator::replacer(
+            $rule,
             function ($message, $attribute, $rule, $parameters, $validator) use ($replacers) {
-
-                foreach ($this->labelParameters($replacers, $parameters, $attribute, $validator->getData()) as $key => $value) {
-
+                foreach (
+                    $this->labelParameters(
+                        $replacers,
+                        $parameters,
+                        $attribute,
+                        $validator->getData()
+                    ) as $key => $value
+                ) {
                     $message = str_replace(':' . $key, $value, $message);
                 }
                 return $message;
@@ -191,7 +207,6 @@ trait Ruler
         $result = [0 => [], 1 => []];
 
         foreach ($replacers as $key => $replacer) {
-
             $result[0][] = $replacer instanceof Closure ? $key : $replacer;
 
             if ($replacer instanceof Closure) {
@@ -200,5 +215,26 @@ trait Ruler
         }
 
         return $result;
+    }
+
+
+    protected function validateRuleOrThrowException(object $extension, string $rule): void
+    {
+        if ($this->isValidRule($extension)) {
+            return;
+        }
+        throw new RuntimeException(
+            sprintf(
+                'Validation rule \'%s\' should be an instance of \'%s\' or \'%s\'',
+                $rule,
+                Rule::class,
+                InvokableRule::class
+            )
+        );
+    }
+
+    protected function isValidRule(object $extension): bool
+    {
+        return $extension instanceof Rule || $extension instanceof InvokableRule;
     }
 }

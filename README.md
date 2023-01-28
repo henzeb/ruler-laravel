@@ -135,6 +135,8 @@ class YourRule implements Rule {
 }
 ```
 
+Note: You can also use invokable rules here.
+
 #### Parameters
 
 You can use parameters. Just add a constructor with the parameters in the order
@@ -181,6 +183,12 @@ class DependentRule implements DataAwareRule {
     // your code 
 }
 ```
+
+##### Validator aware rules
+
+Ruler also supports Validator aware rules. Just implement the required 
+interface.
+
 
 #### mixing up interfaces
 
