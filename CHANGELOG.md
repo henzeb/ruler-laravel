@@ -2,6 +2,10 @@
 
 All notable changes to `Enumhancer` will be documented in this file
 
+## 1.2.0 -
+
+- Supporting YET another way of defining rules: ValidationRule
+
 ## 1.2.0 - 2023-01-28
 
 - Now supports invokable rules
@@ -10,7 +14,6 @@ All notable changes to `Enumhancer` will be documented in this file
 ## 1.1.0 - 2022-03-07
 
 - Made `message` method dynamically
-
 
 ## 1.0.0 - 2022-02-13
 

@@ -1,11 +1,12 @@
 # Ruler for Laravel
+
 [![Build Status](https://github.com/henzeb/ruler-laravel/workflows/tests/badge.svg)](https://github.com/henzeb/ruler-laravel/actions)
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/henzeb/ruler-laravel.svg)](https://packagist.org/packages/henzeb/ruler-laravel)
 [![Total Downloads](https://img.shields.io/packagist/dt/henzeb/ruler-laravel.svg)](https://packagist.org/packages/henzeb/ruler-laravel)
 [![Test Coverage](https://api.codeclimate.com/v1/badges/e99e94ee9fa5a9a40901/test_coverage)](https://codeclimate.com/github/henzeb/ruler-laravel/test_coverage)
 
-
-This library allows you to use your Rule as a string, just like you use existing validators like `required`, `required_if`
+This library allows you to use your Rule as a string, just like you use existing validators
+like `required`, `required_if`
 or `unique`.
 
 For example: Laravel has bundled a rule for enums. As the parameter you pass is a string, you should be able to use it
@@ -35,7 +36,7 @@ You can install the package via composer:
 composer require henzeb/ruler-laravel
 ```
 
-note: I only support PHP ^8.1 and Laravel ^8.69 and ^9.0 because of the enums.
+note: I only support PHP ^8.1 because of the enums.
 
 ## Usage
 
@@ -186,9 +187,8 @@ class DependentRule implements DataAwareRule {
 
 ##### Validator aware rules
 
-Ruler also supports Validator aware rules. Just implement the required 
+Ruler also supports Validator aware rules. Just implement the required
 interface.
-
 
 #### mixing up interfaces
 
@@ -202,7 +202,7 @@ The error message should be placed in the `message` method
 as defined in `Illuminate\Contracts\Validation\Rule`,
 just as you normally would.
 
-The message method is called dynamically, which means you can store the message in your 
+The message method is called dynamically, which means you can store the message in your
 `Rule` instance and return it in the `message` method.
 
 ```php
@@ -288,6 +288,7 @@ class YourRule implements ReplacerAwareRule
 ```
 
 ### Overriding the Validator resolver
+
 Because Ruler has a custom Validator instance set to resolve by Laravel, you need to extend
 the `Henzeb\Ruler\Validator\RulerValidator` class in case you want to change the resolver.
 
