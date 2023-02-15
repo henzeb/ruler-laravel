@@ -11,11 +11,14 @@ use Illuminate\Contracts\Validation\Rule;
 use Illuminate\Support\Facades\Validator;
 use Henzeb\Ruler\Validator\RulerValidator;
 use Henzeb\Ruler\Contracts\ReplacerAwareRule;
-use Illuminate\Contracts\Validation\ImplicitRule;
 use Illuminate\Contracts\Validation\DataAwareRule;
 use Illuminate\Contracts\Validation\InvokableRule;
 use Illuminate\Validation\InvokableValidationRule;
+use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Contracts\Validation\ValidatorAwareRule;
+
+use function is_a;
+use function interface_exists;
 
 trait Ruler
 {
@@ -43,11 +46,24 @@ trait Ruler
     private function rulerClassmap(): array
     {
         return [
-            InvokableRule::class => 'extend',
-            DataAwareRule::class => 'extendDependent',
-            ImplicitRule::class => 'extendImplicit',
-            Rule::class => 'extend',
+            'Illuminate\Contracts\Validation\InvokableRule' => 'extend',
+            'Illuminate\Contracts\Validation\ValidationRule' => 'extend',
+            'Illuminate\Contracts\Validation\DataAwareRule' => 'extendDependent',
+            'Illuminate\Contracts\Validation\ImplicitRule' => 'extendImplicit',
+            'Illuminate\Contracts\Validation\Rule' => 'extend',
         ];
+    }
+
+    private function rulerAvailableClasses(): array
+    {
+        return array_filter(
+            [
+                'Illuminate\Contracts\Validation\InvokableRule',
+                'Illuminate\Contracts\Validation\ValidationRule',
+                'Illuminate\Contracts\Validation\Rule'
+            ],
+            'interface_exists'
+        );
     }
 
     /**
@@ -65,15 +81,18 @@ trait Ruler
     }
 
     /**
-     * Extends the Validator with the given Illuminate\Contracts\Validation\Rule implementation.
+     * Extends the Validator with the given Rule implementation.
      *
-     * @param string|Rule|InvokableRule $extension
+     * Depending on your laravel version some might not be available or deprecated,
+     * hence the hacky way of typehinting.
+     *
+     * @param string|Rule|InvokableRule|ValidationRule $extension
      * @param string|null $rule
      * @return void
      *
      * @throws ReflectionException
      */
-    protected function rule(string|Rule|InvokableRule $extension, string $rule = null): void
+    protected function rule(string|object $extension, string $rule = null): void
     {
         if (is_string($extension) && class_exists($extension)) {
             $extension = (new ReflectionClass($extension))->newInstanceWithoutConstructor();
@@ -106,12 +125,14 @@ trait Ruler
      */
     private function extendValidator(string $rule, string $method, string $extension): void
     {
+        $invokable = $this->rulerIsInvokableRule($extension);
+
         Validator::$method(
             $rule,
-            (static function ($attribute, $value, $parameters, $validator) use ($extension) {
+            (static function ($attribute, $value, $parameters, $validator) use ($extension, $invokable) {
                 $rule = new $extension(...$parameters);
 
-                if ($rule instanceof InvokableRule) {
+                if ($invokable) {
                     $rule = InvokableValidationRule::make($rule);
                 }
 
@@ -140,7 +161,7 @@ trait Ruler
      */
     private function addReplacer(string $rule, object $extension): void
     {
-        $replacers = $extension instanceof ReplacerAwareRule?$extension->replacers():[];
+        $replacers = $extension instanceof ReplacerAwareRule ? $extension->replacers() : [];
 
         Validator::replacer(
             $rule,
@@ -233,8 +254,33 @@ trait Ruler
         );
     }
 
-    protected function isValidRule(object $extension): bool
+
+    private function isValidRule(object $extension): bool
     {
-        return $extension instanceof Rule || $extension instanceof InvokableRule;
+        foreach ($this->rulerAvailableClasses() as $ruleClass) {
+            if (is_a($extension, $ruleClass)) {
+                return true;
+            }
+        }
+
+        return false;
     }
+
+    private function rulerIsInvokableRule(string $extension): bool
+    {
+        $invokableRules = [
+            'Illuminate\Contracts\Validation\InvokableRule',
+            'Illuminate\Contracts\Validation\ValidationRule'
+        ];
+        foreach ($invokableRules as $invokableRule) {
+            if (interface_exists($invokableRule)
+                && is_a($extension, $invokableRule, true)
+            ) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+
 }

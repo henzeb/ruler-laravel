@@ -1,6 +1,6 @@
 {
     "name": "henzeb/ruler-laravel",
-    "description": "extends Laravel's validator using their own Rules interface",
+    "description": "extends Laravel's validator using their own Rule interface",
     "keywords": [
         "henzeb",
         "ruler-laravel"
@@ -16,11 +16,10 @@
         }
     ],
     "require": {
-        "php": "^8.1",
-        "illuminate/support": "^8.69|^9.0"
+        "php": "^8.1"
     },
     "require-dev": {
-        "orchestra/testbench": "^7.0",
+        "orchestra/testbench": "^7.0|^8.0",
         "phpunit/phpunit": "^9.0"
     },
     "autoload": {
@@ -38,7 +37,6 @@
         "test-coverage": "XDEBUG_MODE=coverage vendor/bin/phpunit --coverage-html coverage",
         "test-coverage-txt": "XDEBUG_MODE=coverage vendor/bin/phpunit --coverage-text",
         "test-dox": "vendor/bin/phpunit --testdox"
-
     },
     "config": {
         "sort-packages": true

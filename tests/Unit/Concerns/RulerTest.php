@@ -23,6 +23,9 @@ use Henzeb\Ruler\Tests\Fixtures\DynamicMessageRule;
 use Henzeb\Ruler\Tests\Fixtures\DynamicMessagesRule;
 use Henzeb\Ruler\Tests\Fixtures\WithReplacerWithCallbackRule;
 
+use function version_compare;
+use function interface_exists;
+
 
 class RulerTest extends TestCase
 {
@@ -319,9 +322,45 @@ class RulerTest extends TestCase
 
     public function testShouldAllowInvokableRule()
     {
-        if(!\class_exists('Illuminate\Contracts\Validation\InvokableRule')) {
-            $this->expectNotToPerformAssertions();
+        if (!interface_exists('Illuminate\Contracts\Validation\InvokableRule')) {
+            $this->markTestSkipped();
             return;
+        }
+        $this->rule(InvokableTestRule::class, 'invokable');
+
+        $this->assertEquals(
+            [],
+            Validator::make(
+                [
+                    'test_field' => 'testMe',
+                ],
+                [
+                    'test_field' => 'invokable'
+                ]
+            )->messages()->toArray()
+        );
+
+        $this->assertEquals(
+            [
+                'test_field' => [
+                    'shouldFail'
+                ]
+            ],
+            Validator::make(
+                [
+                    'test_field' => 'testMe',
+                ],
+                [
+                    'test_field' => 'invokable:1'
+                ]
+            )->messages()->toArray()
+        );
+    }
+
+    public function testShouldAllowValidationRule()
+    {
+        if (!interface_exists('Illuminate\Contracts\Validation\ValidationRule')) {
+            $this->markTestSkipped();
         }
         $this->rule(InvokableTestRule::class, 'invokable');
 
@@ -380,12 +419,15 @@ class RulerTest extends TestCase
         );
     }
 
+
     public function testRulerShouldStillBeAbleToPassLaravelValidationMessages()
     {
+        $withField = version_compare($this->app->version(), '10.0.0') >= 0;
+
         $this->assertEquals(
             [
                 'a_field' => [
-                    'The a field must be an array.',
+                    'The a field ' . ($withField ? 'field ' : '') . 'must be an array.',
                     'The a field field is prohibited unless another field is in test.'
                 ]
             ],

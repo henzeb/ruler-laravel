@@ -2,6 +2,7 @@
 
 namespace Henzeb\Ruler\Tests\Unit\Providers;
 
+use Illuminate\Validation\ValidationException;
 use Henzeb\Ruler\Providers\RulerServiceProvider;
 use Henzeb\Ruler\Tests\Fixtures\CustomBootServiceProvider;
 use Henzeb\Ruler\Tests\Fixtures\TestEnum;
@@ -53,7 +54,7 @@ class RulerServiceProviderTest extends Testcase
     {
         $this->app->make($serviceProvider, ['app'=>$this->app])->boot();
 
-        $this->expectExceptionMessage('The selected my field is invalid.');
+        $this->expectException(ValidationException::class);
 
         Validator::make(
             [
