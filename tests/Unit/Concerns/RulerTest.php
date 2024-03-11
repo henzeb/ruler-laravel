@@ -62,7 +62,7 @@ class RulerTest extends TestCase
         $this->rule(BasicRule::class, 'myRandomName');
     }
 
-    public function providesTestcasesForShouldGetMessage(): array
+    public static function providesTestcasesForShouldGetMessage(): array
     {
         return [
             'string-given' => ['byString', BasicRule::class, ['This is the message']],
@@ -140,7 +140,7 @@ class RulerTest extends TestCase
         $this->rule(InvalidRuleClass::class);
     }
 
-    public function providesTestCasesForShouldGetMessagesWithParametersReplaced(): array
+    public static function providesTestCasesForShouldGetMessagesWithParametersReplaced(): array
     {
         return [
             'numeric-keys' =>
@@ -198,7 +198,8 @@ class RulerTest extends TestCase
         string $class,
         string $parameters,
         string $expectedMessage
-    ) {
+    )
+    {
         $this->rule($class, 'test');
         $this->assertEquals(
             [

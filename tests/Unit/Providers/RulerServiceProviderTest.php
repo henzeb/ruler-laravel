@@ -2,11 +2,11 @@
 
 namespace Henzeb\Ruler\Tests\Unit\Providers;
 
-use Illuminate\Validation\ValidationException;
 use Henzeb\Ruler\Providers\RulerServiceProvider;
 use Henzeb\Ruler\Tests\Fixtures\CustomBootServiceProvider;
 use Henzeb\Ruler\Tests\Fixtures\TestEnum;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
 use Orchestra\Testbench\TestCase;
 
 /**
@@ -15,7 +15,7 @@ use Orchestra\Testbench\TestCase;
  */
 class RulerServiceProviderTest extends Testcase
 {
-    protected function providesServiceProviders(): array
+    public static function providesServiceProviders(): array
     {
         return [
             'trait-boot' => [RulerServiceProvider::class],
@@ -30,7 +30,7 @@ class RulerServiceProviderTest extends Testcase
      */
     public function testEnumRuleShouldPass(string $serviceProvider)
     {
-        $this->app->make($serviceProvider, ['app'=>$this->app])->boot();
+        $this->app->make($serviceProvider, ['app' => $this->app])->boot();
 
         $this->assertTrue(
             Validator::make(
@@ -52,7 +52,7 @@ class RulerServiceProviderTest extends Testcase
      */
     public function testEnumRuleShouldFail(string $serviceProvider)
     {
-        $this->app->make($serviceProvider, ['app'=>$this->app])->boot();
+        $this->app->make($serviceProvider, ['app' => $this->app])->boot();
 
         $this->expectException(ValidationException::class);
 

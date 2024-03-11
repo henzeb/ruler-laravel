@@ -2,11 +2,11 @@
 
 namespace Henzeb\Ruler\Providers;
 
-use Validator;
 use Henzeb\Ruler\Concerns\Ruler;
-use Illuminate\Validation\Rules\Enum;
-use Illuminate\Support\ServiceProvider;
 use Henzeb\Ruler\Validator\RulerValidator;
+use Illuminate\Support\ServiceProvider;
+use Illuminate\Validation\Rules\Enum;
+use Validator;
 
 class RulerServiceProvider extends ServiceProvider
 {
@@ -16,7 +16,7 @@ class RulerServiceProvider extends ServiceProvider
         Enum::class
     ];
 
-    public function boot()
+    public function boot(): void
     {
         Validator::resolver(
             function ($translator, $data, $rules, $messages, $customAttributes) {
