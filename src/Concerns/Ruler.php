@@ -3,22 +3,21 @@
 namespace Henzeb\Ruler\Concerns;
 
 use Closure;
-use ReflectionClass;
-use RuntimeException;
-use ReflectionException;
-use Illuminate\Support\Str;
-use Illuminate\Contracts\Validation\Rule;
-use Illuminate\Support\Facades\Validator;
-use Henzeb\Ruler\Validator\RulerValidator;
 use Henzeb\Ruler\Contracts\ReplacerAwareRule;
+use Henzeb\Ruler\Validator\RulerValidator;
 use Illuminate\Contracts\Validation\DataAwareRule;
 use Illuminate\Contracts\Validation\InvokableRule;
-use Illuminate\Validation\InvokableValidationRule;
+use Illuminate\Contracts\Validation\Rule;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Contracts\Validation\ValidatorAwareRule;
-
-use function is_a;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
+use Illuminate\Validation\InvokableValidationRule;
+use ReflectionClass;
+use ReflectionException;
+use RuntimeException;
 use function interface_exists;
+use function is_a;
 
 trait Ruler
 {
@@ -36,7 +35,7 @@ trait Ruler
      * @return void
      * @throws ReflectionException
      */
-    protected function bootRuler(): void
+    public function bootRuler(): void
     {
         if (method_exists($this, 'rules')) {
             $this->rules($this->rules);
@@ -73,7 +72,7 @@ trait Ruler
      * @return void
      * @throws ReflectionException
      */
-    protected function rules(array $rules)
+    public function rules(array $rules)
     {
         foreach ($rules as $rule => $extension) {
             $this->rule($extension, is_string($rule) ? $rule : null);
@@ -92,7 +91,7 @@ trait Ruler
      *
      * @throws ReflectionException
      */
-    protected function rule(string|object $extension, string $rule = null): void
+    public function rule(string|object $extension, string $rule = null): void
     {
         if (is_string($extension) && class_exists($extension)) {
             $extension = (new ReflectionClass($extension))->newInstanceWithoutConstructor();
@@ -110,6 +109,10 @@ trait Ruler
                     $extension::class
                 );
             }
+        }
+
+        if (property_exists($extension, 'implicit') && $extension->implicit) {
+            $this->extendValidator($rule, 'extendImplicit', $extension::class);
         }
 
         $this->addReplacer($rule, $extension);

@@ -139,6 +139,34 @@ it('should register as implicit', function () {
     $this->rule(SimpleImlicitRule::class, 'implicitRule');
 });
 
+it('should register as implicit when rule has implicit property set to true', function () {
+    $rule = new class implements \Illuminate\Contracts\Validation\ValidationRule {
+        public bool $implicit = true;
+
+        public function validate(string $attribute, mixed $value, \Closure $fail): void
+        {
+        }
+    };
+
+    Validator::partialMock()->expects('extendImplicit')->once();
+
+    $this->rule($rule, 'implicitByProperty');
+});
+
+it('should not register as implicit when rule has implicit property set to false', function () {
+    $rule = new class implements \Illuminate\Contracts\Validation\ValidationRule {
+        public bool $implicit = false;
+
+        public function validate(string $attribute, mixed $value, \Closure $fail): void
+        {
+        }
+    };
+
+    Validator::partialMock()->shouldNotReceive('extendImplicit');
+
+    $this->rule($rule, 'notImplicitByProperty');
+});
+
 it('should register as dependent', function () {
     Validator::spy()->expects('extendDependent')->once();
 

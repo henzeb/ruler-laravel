@@ -5,9 +5,8 @@
 [![Total Downloads](https://img.shields.io/packagist/dt/henzeb/ruler-laravel.svg)](https://packagist.org/packages/henzeb/ruler-laravel)
 [![Test Coverage](https://api.codeclimate.com/v1/badges/e99e94ee9fa5a9a40901/test_coverage)](https://codeclimate.com/github/henzeb/ruler-laravel/test_coverage)
 
-This library allows you to use your Rule as a string, just like you use existing validators
-like `required`, `required_if`
-or `unique`.
+This library enhances the way you work with Laravel's validation Rules. It allows you to use
+your Rule classes as string-based validators and group rules into reusable rulesets.
 
 For example: Laravel has bundled a rule for enums. As the parameter you pass is a string, you should be able to use it
 like this:
@@ -100,18 +99,40 @@ use App\Rules\YourOtherRule;
 class YourProvider extends ServiceProvider
 {
     use Ruler;
-    
+
     public function boot() {
         if(/** some condition */) {
             $this->rule(YourRule::class, 'your_rule');
         }
-        
+
         if(/** some condition */) {
             $this->rule(YourOtherRule::class);
         }
         // your code
     }
 }
+```
+
+#### Registering rules via the Rule facade
+
+You can also register rules directly using the `Rule` facade, without needing a service provider:
+
+```php
+use Illuminate\Validation\Rule;
+use App\Rules\YourRule;
+use App\Rules\YourOtherRule;
+
+Rule::register(YourRule::class, 'your_rule');
+Rule::register(YourOtherRule::class);
+```
+
+You can also pass an array to register multiple rules at once:
+
+```php
+Rule::register([
+    'your_rule' => YourRule::class,
+    YourOtherRule::class,
+]);
 ```
 
 ### The Rule class
@@ -285,6 +306,122 @@ class YourRule implements ReplacerAwareRule
         ];
     }
 }
+```
+
+### Ruleset
+
+The `Ruleset` class allows you to group multiple validation rules into a single reusable rule object.
+Instead of writing a custom `Rule` with manual validation logic, you define a set of existing Laravel rules
+that are applied together.
+
+#### Basic usage
+
+Extend the `Henzeb\Ruler\Ruleset` class and implement the `rules` method:
+
+```php
+use Henzeb\Ruler\Ruleset;
+
+class NameRuleset extends Ruleset
+{
+    protected function rules(): array
+    {
+        return ['required', 'string', 'min:3'];
+    }
+}
+```
+
+Then use it like any other rule object:
+
+```php
+Validator::make($data, [
+    'name' => [new NameRuleset()],
+]);
+```
+
+You can also return rules as a string:
+
+```php
+protected function rules(): string
+{
+    return 'required|string|min:3';
+}
+```
+
+#### Implicit behavior
+
+By default, a `Ruleset` is implicit, meaning it validates even when the value is empty.
+You can disable this by setting the `$implicit` property to `false`:
+
+```php
+$ruleset = new NameRuleset();
+$ruleset->implicit = false;
+```
+
+#### Custom messages and attributes
+
+Override the `messages` and `attributes` methods to customize error messages and attribute names:
+
+```php
+use Henzeb\Ruler\Ruleset;
+
+class NameRuleset extends Ruleset
+{
+    protected function rules(): array
+    {
+        return ['required', 'string', 'min:3'];
+    }
+
+    protected function messages(): array
+    {
+        return ['min' => 'Too short!'];
+    }
+
+    protected function attributes(): array
+    {
+        return ['name' => 'username'];
+    }
+}
+```
+
+#### Configuring the inner validator
+
+The `configure` method gives you access to the underlying `Validator` instance,
+allowing you to use features like `stopOnFirstFailure` or `sometimes`:
+
+```php
+use Henzeb\Ruler\Ruleset;
+use Illuminate\Validation\Validator;
+
+class NameRuleset extends Ruleset
+{
+    protected function rules(): array
+    {
+        return ['required', 'string', 'min:3'];
+    }
+
+    protected function configure(Validator $validator): void
+    {
+        $validator->stopOnFirstFailure();
+    }
+}
+```
+
+#### Using with the Ruler trait
+
+A `Ruleset` can also be registered as a string-based rule via the `Ruler` trait, just like any other rule:
+
+```php
+private array $rules = [
+    'name_ruleset' => NameRuleset::class,
+];
+```
+
+This allows you to use it as a string:
+
+```php
+Validator::make($data, [
+    'name' => 'name_ruleset',
+]);
 ```
 
 ### Overriding the Validator resolver
