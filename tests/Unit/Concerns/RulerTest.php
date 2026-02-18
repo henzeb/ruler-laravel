@@ -1,13 +1,8 @@
 <?php
 
-namespace Henzeb\Ruler\Tests\Unit\Concerns;
-
-
-use RuntimeException;
-use ReflectionException;
 use Henzeb\Ruler\Concerns\Ruler;
-use Orchestra\Testbench\TestCase;
 use Illuminate\Contracts\Validation\Rule;
+use Illuminate\Contracts\Validation\InvokableRule;
 use Illuminate\Support\Facades\Validator;
 use Henzeb\Ruler\Validator\RulerValidator;
 use Henzeb\Ruler\Tests\Fixtures\BasicRule;
@@ -18,426 +13,282 @@ use Henzeb\Ruler\Tests\Fixtures\InvokableTestRule;
 use Henzeb\Ruler\Tests\Fixtures\ParameterizedRule;
 use Henzeb\Ruler\Tests\Fixtures\SimpleImlicitRule;
 use Henzeb\Ruler\Tests\Fixtures\WithReplacersRule;
-use Illuminate\Contracts\Validation\InvokableRule;
 use Henzeb\Ruler\Tests\Fixtures\DynamicMessageRule;
 use Henzeb\Ruler\Tests\Fixtures\DynamicMessagesRule;
 use Henzeb\Ruler\Tests\Fixtures\WithReplacerWithCallbackRule;
 
-use function version_compare;
-use function interface_exists;
+uses(Ruler::class);
 
+beforeEach(function () {
+    $this->rules = [BasicRule::class];
 
-class RulerTest extends TestCase
-{
-    use Ruler;
+    Validator::resolver(function ($translator, $data, $rules, $messages, $customAttributes) {
+        return new RulerValidator($translator, $data, $rules, $messages, $customAttributes);
+    });
+});
 
-    private array $rules = [
-        BasicRule::class
-    ];
+it('should extend validator using classname as rulename', function () {
+    Validator::partialMock()->expects('extend')
+        ->once()
+        ->withSomeOfArgs('basic_rule');
 
-    protected function setUp(): void
-    {
-        parent::setUp();
+    $this->rule(BasicRule::class);
+});
 
-        Validator::resolver(function ($translator, $data, $rules, $messages, $customAttributes) {
-            return new RulerValidator($translator, $data, $rules, $messages, $customAttributes);
-        });
-    }
+it('should extend validator with given name', function () {
+    Validator::partialMock()->expects('extend')
+        ->once()
+        ->withSomeOfArgs('myRandomName');
 
-    public function testShouldExtendValidatorUsingClassnameAsRulename()
-    {
-        Validator::partialMock()->expects('extend')
-            ->once()
-            ->withSomeOfArgs('basic_rule');
+    $this->rule(BasicRule::class, 'myRandomName');
+});
 
-        $this->rule(BasicRule::class);
-    }
+it('should fail with message', function (string $rule, string|Rule $extension, array $expected) {
+    $this->rule($extension, $rule);
 
-    public function testShouldExtendValidatorWithGivenName()
-    {
-        Validator::partialMock()->expects('extend')
-            ->once()
-            ->withSomeOfArgs('myRandomName');
+    expect(
+        Validator::make(
+            ['test' => 'test'],
+            ['test' => $rule]
+        )->getMessageBag()->toArray()
+    )->toBe(['test' => $expected]);
+})->with([
+    'string-given' => ['byString', BasicRule::class, ['This is the message']],
+    'instance-given' => ['byInstance', new BasicRule(), ['This is the message']],
+    'instance-that-returns-array-as-message' => [
+        'messageReturnsArray',
+        new ArrayMessageRule(),
+        ['This is the message', 'Another message'],
+    ],
+]);
 
-        $this->rule(BasicRule::class, 'myRandomName');
-    }
+it('should pass when given correct value', function () {
+    $this->rule(BasicRule::class, 'testUsingValue');
 
-    public static function providesTestcasesForShouldGetMessage(): array
-    {
-        return [
-            'string-given' => ['byString', BasicRule::class, ['This is the message']],
-            'instance-given' => ['byInstance', new BasicRule(), ['This is the message']],
-            'instance-that-returns-array-as-message' => [
-                'messageReturnsArray',
-                new ArrayMessageRule(),
-                ['This is the message', 'Another message']
-            ],
-        ];
-    }
+    expect(
+        Validator::make(
+            ['test' => 'correctValue'],
+            ['test' => 'testUsingValue']
+        )->passes()
+    )->toBeTrue();
+});
 
-    /**
-     * @param string $rule
-     * @param string|Rule $extension
-     * @return void
-     * @throws ReflectionException
-     *
-     * @dataProvider providesTestcasesForShouldGetMessage
-     */
-    public function testShouldFailWithMessage(string $rule, string|Rule $extension, array $expected): void
-    {
-        $this->rule($extension, $rule);
+it('should throw exception when is not a rule', function () {
+    $this->rule(InvalidRuleClass::class, 'invalidRule');
+})->throws(
+    RuntimeException::class,
+    'Validation rule \'invalidRule\' should be an instance of \'' . Rule::class
+    . '\' or \'' . InvokableRule::class . '\''
+);
 
-        $this->assertEquals(
+it('should throw exception when is not a rule without rule name', function () {
+    $this->rule(InvalidRuleClass::class);
+})->throws(
+    RuntimeException::class,
+    'Validation rule \'invalid_rule_class\' should be an instance of \'' . Rule::class
+    . '\' or \'' . InvokableRule::class . '\''
+);
+
+it('should get message with parameters replaced', function (string $class, string $parameters, string $expectedMessage) {
+    $this->rule($class, 'test');
+
+    expect(
+        Validator::make(
+            ['myAttribute' => 'test'],
+            ['myAttribute' => 'test:' . $parameters]
+        )->getMessageBag()->toArray()
+    )->toBe([
+        'myAttribute' => [$expectedMessage],
+    ]);
+})->with([
+    'numeric-keys' => [
+        'class' => ParameterizedRule::class,
+        'parameters' => 'true,value',
+        'expectedMessage' => 'my attribute true value',
+    ],
+    'numeric-keys-with-different-parameters' => [
+        'class' => ParameterizedRule::class,
+        'parameters' => 'false,test',
+        'expectedMessage' => 'my attribute false test',
+    ],
+    'replacer-aware-parameters' => [
+        'class' => WithReplacersRule::class,
+        'parameters' => 'true,value',
+        'expectedMessage' => 'my attribute true value',
+    ],
+    'different-replacer-aware-parameters' => [
+        'class' => WithReplacersRule::class,
+        'parameters' => 'false,test',
+        'expectedMessage' => 'my attribute false test',
+    ],
+    'replacer-aware-callbacks-and-parameters' => [
+        'class' => WithReplacerWithCallbackRule::class,
+        'parameters' => 'true,value',
+        'expectedMessage' => 'my attribute should equal value',
+    ],
+    'replacer-aware-callbacks-and-different-parameters' => [
+        'class' => WithReplacerWithCallbackRule::class,
+        'parameters' => 'false,test',
+        'expectedMessage' => 'my attribute should not equal test',
+    ],
+]);
+
+it('should register as implicit', function () {
+    Validator::spy()->expects('extendImplicit')->once();
+
+    $this->rule(SimpleImlicitRule::class, 'implicitRule');
+});
+
+it('should register as dependent', function () {
+    Validator::spy()->expects('extendDependent')->once();
+
+    $this->rule(DependentRule::class, 'dependentRule');
+});
+
+it('should be able to access other attributes under validation', function () {
+    $this->rule(DependentRule::class, 'dependent');
+
+    expect(
+        Validator::make(
             [
-                'test' => $expected
+                'first_field' => 'test',
+                'other_field' => 'test',
             ],
-            Validator::make(
-                [
-                    'test' => 'test'
-                ],
-                [
-                    'test' => $rule
-                ]
-            )->getMessageBag()->toArray()
-        );
-    }
+            ['first_field' => 'dependent']
+        )->passes()
+    )->toBeTrue();
+});
 
-    public function testShouldPassWhenGivenCorrectValue()
-    {
-        $this->rule(BasicRule::class, 'testUsingValue');
+it('registers rules without key specified', function () {
+    Validator::spy()->expects('extend')->once();
 
-        $this->assertTrue(
-            Validator::make(
-                [
-                    'test' => 'correctValue'
-                ],
-                [
-                    'test' => 'testUsingValue'
-                ]
-            )->passes()
-        );
-    }
+    $this->rules([BasicRule::class]);
+});
 
-    public function testShouldThrowExceptionWhenIsNotARule(): void
-    {
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage(
-            'Validation rule \'invalidRule\' should be an instance of \'' . Rule::class
-            . '\' or \'' . InvokableRule::class . '\''
-        );
+it('rules should extend validator', function () {
+    Validator::spy()->expects('extend')->once();
 
-        $this->rule(InvalidRuleClass::class, 'invalidRule');
-    }
+    $this->rules(['basic' => BasicRule::class]);
+});
 
-    public function testShouldThrowExceptionWhenIsNotARuleWithoutRuleName(): void
-    {
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage(
-            'Validation rule \'invalid_rule_class\' should be an instance of \'' . Rule::class
-            . '\' or \'' . InvokableRule::class . '\''
-        );
+it('rules should extend validator with multiple rules', function () {
+    Validator::spy()->expects('extend')->twice();
 
-        $this->rule(InvalidRuleClass::class);
-    }
+    $this->rules(['basic' => BasicRule::class, 'another' => DependentRule::class]);
+});
 
-    public static function providesTestCasesForShouldGetMessagesWithParametersReplaced(): array
-    {
-        return [
-            'numeric-keys' =>
-                [
-                    'rule' => ParameterizedRule::class,
-                    'parameters' => 'true,value',
-                    'expectedMessage' => 'my attribute true value'
-                ],
-            'numeric-keys-with-different-parameters' =>
-                [
-                    'rule' => ParameterizedRule::class,
-                    'parameters' => 'false,test',
-                    'expectedMessage' => 'my attribute false test'
-                ],
+it('should boot ruler with boot method', function () {
+    Validator::partialMock()->expects('extend')
+        ->withSomeOfArgs('basic_rule');
 
-            'replacer-aware-parameters' =>
-                [
-                    'rule' => WithReplacersRule::class,
-                    'parameters' => 'true,value',
-                    'expectedMessage' => 'my attribute true value'
-                ],
-            'different-replacer-aware-parameters' =>
-                [
-                    'rule' => WithReplacersRule::class,
-                    'parameters' => 'false,test',
-                    'expectedMessage' => 'my attribute false test'
-                ],
+    $this->boot();
+});
 
-            'replacer-aware-callbacks-and-parameters' =>
-                [
-                    'rule' => WithReplacerWithCallbackRule::class,
-                    'parameters' => 'true,value',
-                    'expectedMessage' => 'my attribute should equal value'
-                ],
-            'replacer-aware-callbacks-and-different-parameters' =>
-                [
-                    'rule' => WithReplacerWithCallbackRule::class,
-                    'parameters' => 'false,test',
-                    'expectedMessage' => 'my attribute should not equal test'
-                ],
-        ];
-    }
+it('rules should have dynamic messages', function () {
+    $this->rule(DynamicMessagesRule::class, 'dynamic');
 
-    /**
-     * @param string $class
-     * @param string $parameters
-     * @param string $expectedMessage
-     * @return void
-     * @throws ReflectionException
-     *
-     * @dataProvider providesTestCasesForShouldGetMessagesWithParametersReplaced
-     */
+    expect(
+        Validator::make(
+            ['test_field' => 'testMe'],
+            ['test_field' => 'dynamic']
+        )->messages()->toArray()
+    )->toBe([
+        'test_field' => [
+            'This is a message',
+            'This is another message',
+        ],
+    ]);
+});
 
-    public function testShouldGetMessageWithParametersReplaced(
-        string $class,
-        string $parameters,
-        string $expectedMessage
-    )
-    {
-        $this->rule($class, 'test');
-        $this->assertEquals(
+it('rules should have dynamic message', function () {
+    $this->rule(DynamicMessageRule::class, 'dynamic');
+
+    expect(
+        Validator::make(
+            ['test_field' => 'testMe'],
+            ['test_field' => 'dynamic']
+        )->messages()->toArray()
+    )->toBe([
+        'test_field' => [
+            'This is a message for test_field',
+        ],
+    ]);
+});
+
+it('should allow invokable rule', function () {
+    $this->rule(InvokableTestRule::class, 'invokable');
+
+    expect(
+        Validator::make(
+            ['test_field' => 'testMe'],
+            ['test_field' => 'invokable']
+        )->messages()->toArray()
+    )->toBe([]);
+
+    expect(
+        Validator::make(
+            ['test_field' => 'testMe'],
+            ['test_field' => 'invokable:1']
+        )->messages()->toArray()
+    )->toBe([
+        'test_field' => ['shouldFail'],
+    ]);
+})->skip(!interface_exists('Illuminate\Contracts\Validation\InvokableRule'));
+
+it('should allow validation rule', function () {
+    $this->rule(InvokableTestRule::class, 'invokable');
+
+    expect(
+        Validator::make(
+            ['test_field' => 'testMe'],
+            ['test_field' => 'invokable']
+        )->messages()->toArray()
+    )->toBe([]);
+
+    expect(
+        Validator::make(
+            ['test_field' => 'testMe'],
+            ['test_field' => 'invokable:1']
+        )->messages()->toArray()
+    )->toBe([
+        'test_field' => ['shouldFail'],
+    ]);
+})->skip(!interface_exists('Illuminate\Contracts\Validation\ValidationRule'));
+
+it('should allow multiple instances of the same rule', function () {
+    $this->rule(DynamicMessageRule::class, 'dynamic');
+
+    expect(
+        Validator::make(
             [
-                'myAttribute' => [
-                    $expectedMessage
-                ]
+                'test_field' => 'testMe',
+                'test_field2' => 'testMe',
             ],
-            Validator::make(
-                [
-                    'myAttribute' => 'test'
-                ],
-                [
-                    'myAttribute' => 'test:' . $parameters
-                ]
-            )->getMessageBag()->toArray()
-        );
-    }
-
-    public function testShouldRegisterAsImplicit()
-    {
-        Validator::spy()->expects('extendImplicit')->once();
-
-        $this->rule(SimpleImlicitRule::class, 'implicitRule');
-    }
-
-    public function testShouldRegisterAsDependent()
-    {
-        Validator::spy()->expects('extendDependent')->once();
-
-        $this->rule(DependentRule::class, 'dependentRule');
-    }
-
-    public function testShouldBeAbleToAccessOtherAttributesUnderValidation()
-    {
-        $this->rule(DependentRule::class, 'dependent');
-
-        $this->assertTrue(
-            Validator::make(
-                [
-                    'first_field' => 'test',
-                    'other_field' => 'test',
-                ],
-                [
-                    'first_field' => 'dependent'
-                ]
-            )->passes()
-        );
-    }
-
-    public function testRulesWithoutKeySpecified()
-    {
-        Validator::spy()->expects('extend')->once();
-
-        $this->rules([BasicRule::class]);
-    }
-
-    public function testRulesShouldExtendValidator()
-    {
-        Validator::spy()->expects('extend')->once();
-
-        $this->rules(['basic' => BasicRule::class]);
-    }
-
-    public function testRulesShouldExtendValidatorWithMultipleRules()
-    {
-        Validator::spy()->expects('extend')->twice();
-
-        $this->rules(['basic' => BasicRule::class, 'another' => DependentRule::class]);
-    }
-
-    public function testShouldBootRulerWhithBootMethod()
-    {
-        Validator::partialMock()->expects('extend')
-            ->withSomeOfArgs('basic_rule');
-
-        $this->boot();
-    }
-
-    public function testRulesShouldHaveDynamicMessages()
-    {
-        $this->rule(DynamicMessagesRule::class, 'dynamic');
-
-        $this->assertEquals(
             [
-                'test_field' => [
-                    'This is a message',
-                    'This is another message'
-                ]
-            ],
-            Validator::make(
-                [
-                    'test_field' => 'testMe',
-                ],
-                [
-                    'test_field' => 'dynamic'
-                ]
-            )->messages()->toArray()
-        );
-    }
+                'test_field' => 'dynamic',
+                'test_field2' => 'dynamic',
+            ]
+        )->messages()->toArray()
+    )->toBe([
+        'test_field' => [
+            'This is a message for test_field',
+        ],
+        'test_field2' => [
+            'This is a message for test_field2',
+        ],
+    ]);
+});
 
-    public function testRulesShouldHaveDynamicMessage()
-    {
-        $this->rule(DynamicMessageRule::class, 'dynamic');
-
-        $this->assertEquals(
-            [
-                'test_field' => [
-                    'This is a message for test_field',
-                ]
-            ],
-            Validator::make(
-                [
-                    'test_field' => 'testMe',
-                ],
-                [
-                    'test_field' => 'dynamic'
-                ]
-            )->messages()->toArray()
-        );
-    }
-
-    public function testShouldAllowInvokableRule()
-    {
-        if (!interface_exists('Illuminate\Contracts\Validation\InvokableRule')) {
-            $this->markTestSkipped();
-            return;
-        }
-        $this->rule(InvokableTestRule::class, 'invokable');
-
-        $this->assertEquals(
-            [],
-            Validator::make(
-                [
-                    'test_field' => 'testMe',
-                ],
-                [
-                    'test_field' => 'invokable'
-                ]
-            )->messages()->toArray()
-        );
-
-        $this->assertEquals(
-            [
-                'test_field' => [
-                    'shouldFail'
-                ]
-            ],
-            Validator::make(
-                [
-                    'test_field' => 'testMe',
-                ],
-                [
-                    'test_field' => 'invokable:1'
-                ]
-            )->messages()->toArray()
-        );
-    }
-
-    public function testShouldAllowValidationRule()
-    {
-        if (!interface_exists('Illuminate\Contracts\Validation\ValidationRule')) {
-            $this->markTestSkipped();
-        }
-        $this->rule(InvokableTestRule::class, 'invokable');
-
-        $this->assertEquals(
-            [],
-            Validator::make(
-                [
-                    'test_field' => 'testMe',
-                ],
-                [
-                    'test_field' => 'invokable'
-                ]
-            )->messages()->toArray()
-        );
-
-        $this->assertEquals(
-            [
-                'test_field' => [
-                    'shouldFail'
-                ]
-            ],
-            Validator::make(
-                [
-                    'test_field' => 'testMe',
-                ],
-                [
-                    'test_field' => 'invokable:1'
-                ]
-            )->messages()->toArray()
-        );
-    }
-
-    public function testShouldAllowMultipleInstancesOfTheSameRule()
-    {
-        $this->rule(DynamicMessageRule::class, 'dynamic');
-
-        $this->assertEquals(
-            [
-                'test_field' => [
-                    'This is a message for test_field',
-                ],
-                'test_field2' => [
-                    'This is a message for test_field2',
-                ]
-            ],
-            Validator::make(
-                [
-                    'test_field' => 'testMe',
-                    'test_field2' => 'testMe',
-                ],
-                [
-                    'test_field' => 'dynamic',
-                    'test_field2' => 'dynamic',
-                ]
-            )->messages()->toArray()
-        );
-    }
-
-
-    public function testRulerShouldStillBeAbleToPassLaravelValidationMessages()
-    {
-        $withField = version_compare($this->app->version(), '10.0.0') >= 0;
-
-        $this->assertEquals(
-            [
-                'a_field' => [
-                    'The a field ' . ($withField ? 'field ' : '') . 'must be an array.',
-                    'The a field field is prohibited unless another field is in test.'
-                ]
-            ],
-            Validator::make(
-                [
-                    'a_field' => 'string'
-                ],
-                ['a_field' => 'array|prohibited_unless:another_field,test']
-            )->messages()->toArray()
-        );
-    }
-}
+it('ruler should still be able to pass laravel validation messages', function () {
+    expect(
+        Validator::make(
+            ['a_field' => 'string'],
+            ['a_field' => 'array|prohibited_unless:another_field,test']
+        )->messages()->toArray()
+    )->toBe([
+        'a_field' => [
+            'The a field field must be an array.',
+            'The a field field is prohibited unless another field is in test.',
+        ],
+    ]);
+});

@@ -1,71 +1,33 @@
 <?php
 
-namespace Henzeb\Ruler\Tests\Unit\Providers;
-
 use Henzeb\Ruler\Providers\RulerServiceProvider;
 use Henzeb\Ruler\Tests\Fixtures\CustomBootServiceProvider;
 use Henzeb\Ruler\Tests\Fixtures\TestEnum;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
-use Orchestra\Testbench\TestCase;
 
-/**
- * I am not testing Laravel validation here, I am testing
- * if this library properly handles the external Enum rule.
- */
-class RulerServiceProviderTest extends Testcase
-{
-    public static function providesServiceProviders(): array
-    {
-        return [
-            'trait-boot' => [RulerServiceProvider::class],
-            'with-custom-boot' => [CustomBootServiceProvider::class],
-        ];
-    }
+it('enum rule should pass', function (string $serviceProvider) {
+    $this->app->make($serviceProvider, ['app' => $this->app])->boot();
 
-    /**
-     * @return void
-     *
-     * @dataProvider providesServiceProviders
-     */
-    public function testEnumRuleShouldPass(string $serviceProvider)
-    {
-        $this->app->make($serviceProvider, ['app' => $this->app])->boot();
-
-        $this->assertTrue(
-            Validator::make(
-                [
-                    'my_field' => 'validEnum'
-                ],
-                [
-                    'my_field' => 'enum:' . TestEnum::class
-                ]
-
-            )->passes()
-        );
-    }
-
-    /**
-     * @return void
-     *
-     * @dataProvider providesServiceProviders
-     */
-    public function testEnumRuleShouldFail(string $serviceProvider)
-    {
-        $this->app->make($serviceProvider, ['app' => $this->app])->boot();
-
-        $this->expectException(ValidationException::class);
-
+    expect(
         Validator::make(
-            [
-                'my_field' => 'invalidEnum'
-            ],
-            [
-                'my_field' => 'enum:' . TestEnum::class
-            ]
+            ['my_field' => 'validEnum'],
+            ['my_field' => 'enum:' . TestEnum::class]
+        )->passes()
+    )->toBeTrue();
+})->with([
+    'trait-boot' => [RulerServiceProvider::class],
+    'with-custom-boot' => [CustomBootServiceProvider::class],
+]);
 
-        )->validate();
-    }
+it('enum rule should fail', function (string $serviceProvider) {
+    $this->app->make($serviceProvider, ['app' => $this->app])->boot();
 
-
-}
+    Validator::make(
+        ['my_field' => 'invalidEnum'],
+        ['my_field' => 'enum:' . TestEnum::class]
+    )->validate();
+})->with([
+    'trait-boot' => [RulerServiceProvider::class],
+    'with-custom-boot' => [CustomBootServiceProvider::class],
+])->throws(ValidationException::class);
